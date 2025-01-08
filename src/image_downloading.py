@@ -2,15 +2,37 @@ import cv2
 import requests
 import numpy as np
 import threading
+import os
 
 
-def download_tile(url, headers, channels):
-    response = requests.get(url, headers=headers)
-    arr =  np.asarray(bytearray(response.content), dtype=np.uint8)
+def download_tile(url, headers, channels, path):
+    try:
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()  # Raise an HTTPError for bad responses (4xx and 5xx)
+        
+        arr = np.asarray(bytearray(response.content), dtype=np.uint8)
+        
+        if channels == 3:
+            tile = cv2.imdecode(arr, 1)
+        else:
+            tile = cv2.imdecode(arr, -1)
+        
+        if tile is None:
+            raise ValueError("Failed to decode image")
+        
+        # Save the image to disk
+        if not os.path.exists(os.path.dirname(path)):
+            os.makedirs(os.path.dirname(path))
+        cv2.imwrite(path, tile)
+        
+        return tile
     
-    if channels == 3:
-        return cv2.imdecode(arr, 1)
-    return cv2.imdecode(arr, -1)
+    except requests.RequestException as e:
+        print(f"Request failed: {e}")
+        return None
+    except ValueError as e:
+        print(f"Decoding failed: {e}")
+        return None
 
 
 # Mercator projection 
@@ -24,7 +46,7 @@ def project_with_scale(lat, lon, scale):
 
 
 def download_image(lat1: float, lon1: float, lat2: float, lon2: float,
-    zoom: int, url: str, headers: dict, tile_size: int = 256, channels: int = 3) -> np.ndarray:
+    zoom: int, url: str, headers: dict, tile_size: int = 256, channels: int = 3, directory: str = None) -> np.ndarray:
     """
     Downloads a map region. Returns an image stored as a `numpy.ndarray` in BGR or BGRA, depending on the number
     of `channels`.
@@ -69,7 +91,9 @@ def download_image(lat1: float, lon1: float, lat2: float, lon2: float,
 
     def build_row(tile_y):
         for tile_x in range(tl_tile_x, br_tile_x + 1):
-            tile = download_tile(url.format(x=tile_x, y=tile_y, z=zoom), headers, channels)
+            path = os.path.join(directory, f"_{tile_x}_{tile_y}.png")
+            
+            tile = download_tile(url.format(x=tile_x, y=tile_y, z=zoom), headers, channels, path)
 
             if tile is not None:
                 # Find the pixel coordinates of the new tile relative to the image
@@ -77,7 +101,7 @@ def download_image(lat1: float, lon1: float, lat2: float, lon2: float,
                 tl_rel_y = tile_y * tile_size - tl_pixel_y
                 br_rel_x = tl_rel_x + tile_size
                 br_rel_y = tl_rel_y + tile_size
-
+                
                 # Define where the tile will be placed on the image
                 img_x_l = max(0, tl_rel_x)
                 img_x_r = min(img_w + 1, br_rel_x)
@@ -117,5 +141,7 @@ def image_size(lat1: float, lon1: float, lat2: float,
     tl_pixel_y = int(tl_proj_y * tile_size)
     br_pixel_x = int(br_proj_x * tile_size)
     br_pixel_y = int(br_proj_y * tile_size)
+
+    print(tl_pixel_x, tl_pixel_y, br_pixel_x, br_pixel_y)
 
     return abs(tl_pixel_x - br_pixel_x), br_pixel_y - tl_pixel_y

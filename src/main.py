@@ -10,7 +10,7 @@ file_dir = os.path.dirname(__file__)
 prefs_path = os.path.join(file_dir, 'preferences.json')
 default_prefs = {
         'url': 'https://mt.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-        'tile_size': 256,
+        'tile_size': 512,
         'channels': 3,
         'dir': os.path.join(file_dir, 'images'),
         'headers': {
@@ -71,7 +71,7 @@ def run():
     lon2 = float(lon2)
 
     img = download_image(lat1, lon1, lat2, lon2, zoom, prefs['url'],
-        prefs['headers'], tile_size, channels)
+        prefs['headers'], tile_size, channels, prefs['dir'])
 
     timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
     name = f'img_{timestamp}.png'
