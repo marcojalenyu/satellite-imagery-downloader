@@ -44,6 +44,13 @@ def project_with_scale(lat, lon, scale):
     y = scale * (0.5 - np.log((1 + siny) / (1 - siny)) / (4 * np.pi))
     return x, y
 
+def tile_to_latlon(x, y, z):
+    """ Converts tile coordinates to latitude and longitude. """
+    n = 2.0 ** z
+    lon = x / n * 360.0 - 180.0
+    lat = np.degrees(np.arctan(np.sinh(np.pi * (1 - 2 * y / n))))
+    return lat, lon
+
 
 def download_image(lat1: float, lon1: float, lat2: float, lon2: float,
     zoom: int, url: str, headers: dict, tile_size: int = 256, channels: int = 3, directory: str = None) -> np.ndarray:
@@ -98,8 +105,7 @@ def download_image(lat1: float, lon1: float, lat2: float, lon2: float,
     def build_row(tile_y, tile_size):
         for tile_x in range(tl_tile_x, br_tile_x + 1):
             # Calculate the latitude and longitude for the current tile
-            tile_lat = lat1 + (lat2 - lat1) * (tile_y - tl_tile_y) / (br_tile_y - tl_tile_y)
-            tile_lon = lon1 + (lon2 - lon1) * (tile_x - tl_tile_x) / (br_tile_x - tl_tile_x)
+            tile_lat, tile_lon = tile_to_latlon(tile_x, tile_y, zoom)
                 
             # Create the path with latitude and longitude in the filename
             path = os.path.join(directory, f"_{tile_lat:.6f}_{tile_lon:.6f}.png")
@@ -115,9 +121,9 @@ def download_image(lat1: float, lon1: float, lat2: float, lon2: float,
                 
                 # Define where the tile will be placed on the image
                 img_x_l = max(0, tl_rel_x)
-                img_x_r = min(img_w, br_rel_x)
+                img_x_r = min(img_w + 1, br_rel_x)
                 img_y_l = max(0, tl_rel_y)
-                img_y_r = min(img_h, br_rel_y)
+                img_y_r = min(img_h + 1, br_rel_y)
 
                 # Define how border tiles will be cropped
                 cr_x_l = max(0, -tl_rel_x)
