@@ -88,12 +88,23 @@ def download_image(lat1: float, lon1: float, lat2: float, lon2: float,
     img_h = br_pixel_y - tl_pixel_y
     img = np.zeros((img_h, img_w, channels), np.uint8)
 
+    # Print the pixel coordinates of the corners
+    print(tl_pixel_x, tl_pixel_y, br_pixel_x, br_pixel_y)
+    # Print the tile coordinates of the corners
+    print(tl_tile_x, tl_tile_y, br_tile_x, br_tile_y)
+    # Print longitude and latitude of the corners
+    print(lat1, lon1, lat2, lon2)
 
-    def build_row(tile_y):
+    def build_row(tile_y, tile_size):
         for tile_x in range(tl_tile_x, br_tile_x + 1):
-            path = os.path.join(directory, f"_{tile_x}_{tile_y}.png")
+            # Calculate the latitude and longitude for the current tile
+            tile_lat = lat1 + (lat2 - lat1) * (tile_y - tl_tile_y) / (br_tile_y - tl_tile_y)
+            tile_lon = lon1 + (lon2 - lon1) * (tile_x - tl_tile_x) / (br_tile_x - tl_tile_x)
+                
+            # Create the path with latitude and longitude in the filename
+            path = os.path.join(directory, f"_{tile_lat:.6f}_{tile_lon:.6f}.png")
             
-            tile = download_tile(url.format(x=tile_x, y=tile_y, z=zoom), headers, channels, path)
+            tile = download_tile(url.format(x=tile_lat, y=tile_lon, z=zoom), headers, channels, path)
 
             if tile is not None:
                 # Find the pixel coordinates of the new tile relative to the image
@@ -104,9 +115,9 @@ def download_image(lat1: float, lon1: float, lat2: float, lon2: float,
                 
                 # Define where the tile will be placed on the image
                 img_x_l = max(0, tl_rel_x)
-                img_x_r = min(img_w + 1, br_rel_x)
+                img_x_r = min(img_w, br_rel_x)
                 img_y_l = max(0, tl_rel_y)
-                img_y_r = min(img_h + 1, br_rel_y)
+                img_y_r = min(img_h, br_rel_y)
 
                 # Define how border tiles will be cropped
                 cr_x_l = max(0, -tl_rel_x)
@@ -119,7 +130,7 @@ def download_image(lat1: float, lon1: float, lat2: float, lon2: float,
 
     threads = []
     for tile_y in range(tl_tile_y, br_tile_y + 1):
-        thread = threading.Thread(target=build_row, args=[tile_y])
+        thread = threading.Thread(target=build_row, args=[tile_y, tile_size])
         thread.start()
         threads.append(thread)
     

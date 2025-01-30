@@ -5,6 +5,7 @@ import cv2
 from datetime import datetime
 
 from image_downloading import download_image
+from image_ider import rename_files
 
 file_dir = os.path.dirname(__file__)
 prefs_path = os.path.join(file_dir, 'preferences.json')
@@ -77,6 +78,7 @@ def run():
     name = f'img_{timestamp}.png'
     cv2.imwrite(os.path.join(prefs['dir'], name), img)
     print(f'Saved as {name}')
+    rename_files(prefs['dir'])
 
 
 if os.path.isfile(prefs_path):
